@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinity Secure Pay</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-dark: #020617; --panel: #0f172a; --primary: #6366f1; 
+            --accent: #ec4899; --text: #f8fafc; --text-dim: #94a3b8;
+            --border: rgba(255,255,255,0.1);
+        }
+        * { box-sizing: border-box; outline: none; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        body {
+            font-family: 'Outfit', sans-serif; background: var(--bg-dark); 
+            display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0;
+            background-image: 
+                radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.15), transparent 40%),
+                radial-gradient(circle at 100% 100%, rgba(236, 72, 153, 0.15), transparent 40%);
+        }
+
+        /* --- CONTAINER --- */
+        .wrapper {
+            display: flex; width: 1000px; height: 680px; background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 24px;
+            box-shadow: 0 0 80px rgba(0,0,0,0.6); overflow: hidden; position: relative;
+        }
+
+        /* --- LEFT SIDE --- */
+        .summary {
+            width: 35%; padding: 40px; border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; color: var(--text); background: rgba(0,0,0,0.2);
+        }
+        .brand { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 12px; margin-bottom: 40px; }
+        .product-card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+            padding: 20px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 20px;
+        }
+        .total-row { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); }
+        
+        /* FIXED: Added standard background-clip property */
+        .total-amt { 
+            font-size: 36px; font-weight: 700; 
+            background: linear-gradient(to right, #6366f1, #ec4899); 
+            -webkit-background-clip: text; 
+            background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+        }
+
+        /* --- RIGHT SIDE --- */
+        .payment { width: 65%; padding: 50px; position: relative; }
+
+        /* 3D CARD */
+        .card-visual {
+            width: 340px; height: 210px; margin: 0 auto 30px; position: relative;
+            transform-style: preserve-3d; transition: transform 0.6s; perspective: 1000px;
+        }
+        .card-visual.flipped { transform: rotateY(180deg); }
+        .card-face {
+            position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
+            border-radius: 16px; padding: 25px; color: white;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .card-back { transform: rotateY(180deg); background: linear-gradient(135deg, rgba(0,0,0,0.8), rgba(0,0,0,0.6)); }
+        
+        .chip { width: 45px; height: 32px; background: linear-gradient(135deg, #fbbf24, #d97706); border-radius: 6px; margin-bottom: 10px; }
+        .card-num-text { font-family: 'Courier New', monospace; font-size: 22px; letter-spacing: 2px; text-shadow: 0 2px 4px black; margin-bottom: 15px; }
+        
+        .card-details-row { display: flex; justify-content: space-between; align-items: flex-end; }
+        .card-label { font-size: 10px; opacity: 0.7; letter-spacing: 1px; margin-bottom: 2px; display: block; }
+        .card-value { font-size: 14px; text-transform: uppercase; font-weight: 500; letter-spacing: 1px; }
+
+        /* INPUTS */
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .span-2 { grid-column: span 2; }
+        .input-box { position: relative; }
+        .input-field {
+            width: 100%; padding: 16px 16px 16px 45px; background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+            border-radius: 12px; color: white; font-size: 15px; font-family: 'Outfit', sans-serif;
+        }
+        .input-field:focus { border-color: var(--primary); background: rgba(99, 102, 241, 0.1); }
+        .input-icon { position: absolute; left: 16px; top: 18px; color: var(--text-dim); }
+        .label { position: absolute; top: -8px; left: 12px; font-size: 11px; background: #0b1221; padding: 0 5px; color: var(--accent); }
+
+        .pay-btn {
+            width: 100%; padding: 18px; background: var(--primary); color: white; border: none;
+            border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 25px;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+        }
+        .pay-btn:hover { background: #4f46e5; transform: scale(1.02); }
+
+        /* --- SMART OTP MODAL --- */
+        .otp-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(15px); z-index: 50; display: none; align-items: center; justify-content: center;
+            animation: fadeIn 0.4s;
+        }
+        .otp-card {
+            background: #1e293b; width: 380px; padding: 30px; border-radius: 20px; border: 1px solid var(--border);
+            text-align: center; box-shadow: 0 0 50px rgba(99, 102, 241, 0.2); animation: slideUp 0.4s;
+        }
+        .route-badge {
+            background: rgba(245, 158, 11, 0.15); color: #fbbf24; padding: 5px 12px; border-radius: 20px;
+            font-size: 11px; display: inline-block; margin-bottom: 15px; border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        .otp-digits { display: flex; justify-content: center; gap: 10px; margin: 20px 0; }
+        .otp-box {
+            width: 50px; height: 60px; background: #0f172a; border: 1px solid var(--border);
+            border-radius: 10px; color: white; font-size: 24px; text-align: center;
+        }
+        
+        /* SMS NOTIFICATION (Top of screen) */
+        .sms-toast {
+            position: fixed; top: -100px; left: 50%; transform: translateX(-50%); width: 320px;
+            background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(10px); padding: 15px;
+            border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: flex; gap: 15px; align-items: center; z-index: 100; transition: top 0.5s ease;
+        }
+        .sms-icon { width: 40px; height: 40px; background: #22c55e; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; }
+        .sms-content h4 { margin: 0; font-size: 14px; color: white; }
+        .sms-content p { margin: 2px 0 0; font-size: 12px; color: var(--text-dim); }
+        .autofill-btn { 
+            margin-top: 5px; font-size: 11px; color: var(--primary); cursor: pointer; font-weight: 600;
+        }
+
+        /* SUCCESS OVERLAY */
+        .success-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-dark);
+            z-index: 20; display: none; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .success-circle {
+            width: 100px; height: 100px; border-radius: 50%; border: 2px solid var(--success-color, #10b981);
+            display: flex; align-items: center; justify-content: center; font-size: 50px; color: #10b981;
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.3); animation: pulse 2s infinite;
+        }
+
+        @keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
+        @keyframes slideUp { from {transform:translateY(20px);} to {transform:translateY(0);} }
+        @keyframes pulse { 0% {box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);} 70% {box-shadow: 0 0 0 20px rgba(16, 185, 129, 0);} 100% {box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);} }
+    </style>
+</head>
+<body>
+
+    <div class="sms-toast" id="smsToast">
+        <div class="sms-icon"><i class="fa-solid fa-message"></i></div>
+        <div class="sms-content">
+            <h4>Bank Alert</h4>
+            <p>Your OTP is <strong style="color:white">8921</strong> for ₹1,000.</p>
+            <div class="autofill-btn" onclick="autoFillOtp()">Tap to Auto-fill</div>
+        </div>
+    </div>
+
+    <div class="wrapper">
+        <div class="summary">
+            <div class="brand"><i class="fa-solid fa-infinity"></i> INFINITY PAY</div>
+            <div class="product-card">
+                <h3 style="margin:0 0 5px 0">Zenith License Key</h3>
+                <p style="margin:0; font-size:13px; color:var(--text-dim)">Enterprise Edition • 1 Year</p>
+            </div>
+            <div class="total-row">
+                <div style="font-size:12px; color:var(--text-dim)">TOTAL AMOUNT</div>
+                <div class="total-amt">₹ 1,000.00</div>
+            </div>
+        </div>
+
+        <div class="payment">
+            
+            <div class="success-overlay" id="successScreen">
+                <div class="success-circle"><i class="fa-solid fa-check"></i></div>
+                <h2 style="color:white; margin-top:20px;">Payment Successful</h2>
+                <p style="color:var(--text-dim)">Transaction Secured & Verified.</p>
+            </div>
+
+            <div class="card-visual" id="cardVisual">
+                <div class="card-face card-front">
+                    <div class="chip"></div>
+                    <div class="card-num-text" id="displayNum">#### #### ####</div>
+                    
+                    <div class="card-details-row">
+                        <div>
+                            <span class="card-label">CARD HOLDER</span>
+                            <span class="card-value" id="displayName">YOUR NAME</span>
+                        </div>
+                        <div style="text-align:right;">
+                            <span class="card-label">EXPIRES</span>
+                            <span class="card-value" id="displayExp">MM/YY</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-face card-back">
+                    <div style="background:black; height:40px; margin-top:20px; opacity:0.8"></div>
+                    <div style="background:white; color:black; width:50px; padding:5px; margin:10px 20px 0 auto; text-align:center; font-weight:bold; border-radius:4px;" id="displayCvv">***</div>
+                </div>
+            </div>
+
+            <div class="input-grid">
+                <div class="input-box span-2">
+                    <input type="text" class="input-field" id="cardNum" maxlength="19" oninput="updateCard(this.value)">
+                    <span class="label">CARD NUMBER</span>
+                    <i class="fa-regular fa-credit-card input-icon"></i>
+                </div>
+
+                <div class="input-box span-2">
+                    <input type="text" class="input-field" id="cardName" oninput="updateName(this.value)">
+                    <span class="label">CARDHOLDER NAME</span>
+                    <i class="fa-regular fa-user input-icon"></i>
+                </div>
+
+                <div class="input-box">
+                    <input type="text" class="input-field" id="cardExp" placeholder="MM/YY" maxlength="5" oninput="updateExp(this.value)">
+                    <span class="label">EXPIRY</span>
+                    <i class="fa-regular fa-calendar input-icon"></i>
+                </div>
+                <div class="input-box">
+                    <input type="password" class="input-field" maxlength="3" onfocus="flip(true)" onblur="flip(false)" oninput="updateCvv(this.value)">
+                    <span class="label">CVV</span>
+                    <i class="fa-solid fa-lock input-icon"></i>
+                </div>
+            </div>
+
+            <button id="payBtn" class="pay-btn" onclick="startPayment()">Pay ₹ 1,000.00</button>
+        </div>
+
+        <div class="otp-overlay" id="otpModal">
+            <div class="otp-card">
+                <div class="route-badge"><i class="fa-solid fa-shuffle"></i> REROUTED VIA SECURE GATEWAY</div>
+                <h3 style="color:white; margin:0;">Authentication Required</h3>
+                <p style="color:var(--text-dim); font-size:14px; margin-top:5px;">Direct bank line busy. Enter OTP to proceed.</p>
+                
+                <div class="otp-digits">
+                    <input type="text" class="otp-box" id="otp1" maxlength="1">
+                    <input type="text" class="otp-box" id="otp2" maxlength="1">
+                    <input type="text" class="otp-box" id="otp3" maxlength="1">
+                    <input type="text" class="otp-box" id="otp4" maxlength="1">
+                </div>
+
+                <button class="pay-btn" onclick="verifyOtp()" style="margin-top:10px;" id="verifyBtn">Verify OTP</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 3D Card Logic ---
+        function updateCard(val) {
+            val = val.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim();
+            document.getElementById('cardNum').value = val;
+            document.getElementById('displayNum').innerText = val || '#### #### ####';
+        }
+
+        // UPDATE NAME ON CARD
+        function updateName(val) {
+            document.getElementById('displayName').innerText = val.toUpperCase() || 'YOUR NAME';
+        }
+
+        // UPDATE EXPIRY ON CARD
+        function updateExp(val) {
+            // Auto add slash
+            val = val.replace(/\D/g, '');
+            if(val.length >= 2) val = val.substring(0,2) + '/' + val.substring(2,4);
+            document.getElementById('cardExp').value = val;
+            document.getElementById('displayExp').innerText = val || 'MM/YY';
+        }
+
+        function updateCvv(val) { document.getElementById('displayCvv').innerText = val || '***'; }
+        
+        function flip(isBack) {
+            const card = document.getElementById('cardVisual');
+            if(isBack) card.classList.add('flipped'); else card.classList.remove('flipped');
+        }
+
+        // --- PAYMENT LOGIC ---
+        async function startPayment() {
+            const btn = document.getElementById('payBtn');
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing...';
+            btn.disabled = true;
+
+            try {
+                // Fake Network Delay
+                await new Promise(r => setTimeout(r, 1500));
+
+                const response = await fetch('http://localhost:8080/api/make-payment', { method: 'POST' });
+                const result = await response.json();
+
+                if (result.status === "SUCCESS") {
+                    showSuccess();
+                } else {
+                    triggerFallback();
+                }
+            } catch (e) {
+                alert("Backend Error - Make sure server is running");
+                btn.innerHTML = "Retry";
+                btn.disabled = false;
+            }
+        }
+
+        function triggerFallback() {
+            document.getElementById('otpModal').style.display = 'flex';
+            
+            setTimeout(() => {
+                const sms = document.getElementById('smsToast');
+                sms.style.top = '20px'; // Slide down
+            }, 1500);
+        }
+
+        function autoFillOtp() {
+            document.getElementById('smsToast').style.top = '-100px';
+            const code = "8921";
+            for(let i=0; i<4; i++) {
+                setTimeout(() => {
+                    document.getElementById('otp'+(i+1)).value = code[i];
+                }, i * 150);
+            }
+            setTimeout(() => {
+                document.getElementById('verifyBtn').click();
+            }, 1000);
+        }
+
+        async function verifyOtp() {
+            document.getElementById('otpModal').style.display = 'none';
+            await fetch('http://localhost:8080/api/gateway/simulate-success', { method: 'POST' });
+            showSuccess();
+        }
+
+        function showSuccess() {
+            document.getElementById('successScreen').style.display = 'flex';
+        }
+    </script>
+</body>
+</html>
