@@ -16,13 +16,11 @@ In the Fintech industry, bank server downtimes (HTTP 500 errors) are the #1 caus
 | **1. The "Infinity" UI** | **2. Smart Fault Tolerance** |
 |:---:|:---:|
 | A modern, glassmorphism-based interface with 3D card animations. | If HDFC fails (500 Error), the system **auto-switches** to the OTP Gateway. |
-| ![Home](screenshots/app-home.png) | ![OTP](screenshots/app-otp.png) |
+| ![Home](payment-router/screenshots/app-home.png) | ![OTP](payment-router/screenshots/app-otp.png) |
 
 ### 3. Live Merchant Dashboard
 Real-time traffic monitoring. The **Yellow Badge** indicates a transaction that was "rescued" by the Hybrid Logic.
-![Dashboard](screenshots/app-dashboard.png)
-
----
+![Dashboard](payment-router/screenshots/app-dashboard.png)
 
 ## 🧠 System Architecture (How it Works)
 
