@@ -17,15 +17,21 @@ public class Transaction {
     private String status;   // "SUCCESS" or "FAILED"
     private String responseMessage;
     
+    // NEW FIELD: Stores the unique key to prevent double-spending
+    @Column(unique = true) // Optional: Ensures database rejects duplicates
+    private String idempotencyKey;
+
     private LocalDateTime timestamp;
 
-    // Helper constructor to make saving easier
-    public Transaction(String bankName, String status, String responseMessage) {
+    // Updated Helper Constructor (Now includes idempotencyKey)
+    public Transaction(String bankName, String status, String responseMessage, String idempotencyKey) {
         this.bankName = bankName;
         this.status = status;
         this.responseMessage = responseMessage;
+        this.idempotencyKey = idempotencyKey;
         this.timestamp = LocalDateTime.now();
     }
     
-    public Transaction() {} // Default constructor required by JPA
+    // Default constructor required by JPA
+    public Transaction() {} 
 }

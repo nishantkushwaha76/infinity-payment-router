@@ -14,7 +14,6 @@ import java.util.List;
 @CrossOrigin(origins = "*")
 public class RouterController {
 
-    // 1. Initialize the Logger (Industry Standard)
     private static final Logger logger = LoggerFactory.getLogger(RouterController.class);
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -24,56 +23,69 @@ public class RouterController {
         this.transactionRepository = transactionRepository;
     }
 
-    // 2. THE MAIN PAYMENT LOGIC (Hybrid Routing)
+    // 1. PAYMENT LOGIC (Now Protected by Idempotency)
     @PostMapping("/make-payment")
-    public ResponseEntity<String> processPayment() {
+    public ResponseEntity<String> processPayment(@RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         
-        // A. TRY HDFC FIRST (Primary Route)
+        // --- 🛡️ IDEMPOTENCY CHECK (Safety Layer) ---
+        // If the frontend didn't send a key, we generate a temporary one (for testing)
+        if (idempotencyKey == null || idempotencyKey.isEmpty()) {
+            idempotencyKey = "TEMP_" + System.currentTimeMillis(); 
+        }
+
+        // Check if this key already exists in the database
+        if (transactionRepository.existsByIdempotencyKey(idempotencyKey)) {
+            logger.warn("⚠️ Duplicate Transaction Blocked! Key: " + idempotencyKey);
+            return ResponseEntity.status(409).body("{\"status\": \"DUPLICATE\", \"message\": \"Transaction already processed.\"}");
+        }
+        // -------------------------------------------------
+
+        // A. TRY HDFC FIRST
         try {
-            logger.info("Router: Initiating transaction. Attempting HDFC Primary Route...");
+            logger.info("Router: Processing Transaction " + idempotencyKey + ". Attempting HDFC...");
             String hdfcUrl = "http://localhost:8080/mock-api/hdfc/pay";
             String response = restTemplate.postForObject(hdfcUrl, null, String.class);
             
-            // Save success to DB
-            transactionRepository.save(new Transaction("HDFC Bank", "SUCCESS", "Primary Route"));
-            logger.info("Transaction Successful via HDFC Bank.");
+            // Save success to DB (WITH KEY)
+            transactionRepository.save(new Transaction("HDFC Bank", "SUCCESS", "Primary Route", idempotencyKey));
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            logger.warn("HDFC Connection Failed (500 Error). Switching to SBI Backup Route...");
+            logger.warn("HDFC Failed. Switching to SBI...");
             
-            // B. TRY SBI BACKUP (Secondary Route)
+            // B. TRY SBI BACKUP
             try {
                 String sbiUrl = "http://localhost:8080/mock-api/sbi/pay";
                 String response = restTemplate.postForObject(sbiUrl, null, String.class);
 
-                // Save success to DB
-                transactionRepository.save(new Transaction("SBI", "SUCCESS", "Backup Route"));
-                logger.info("Transaction Recovered via SBI Backup.");
+                // Save success to DB (WITH KEY)
+                transactionRepository.save(new Transaction("SBI", "SUCCESS", "Backup Route", idempotencyKey));
                 return ResponseEntity.ok(response);
 
             } catch (Exception ex) {
-                // C. BOTH FAILED -> ACTIVATE STEALTH GATEWAY (Frontend Trigger)
-                logger.error("CRITICAL: Both Banks Failed. Triggering Hybrid Gateway Fallback.");
+                // C. FALLBACK TRIGGER
+                logger.error("CRITICAL: Both Banks Failed.");
                 
-                // Log the failure in DB (Status: FALLBACK_TRIGGERED)
-                transactionRepository.save(new Transaction("System Alert", "FALLBACK_TRIGGERED", "Redirecting to Gateway"));
-                
-                // Send signal to Frontend to open the OTP Modal
+                // Save failure to DB (WITH KEY)
+                transactionRepository.save(new Transaction("System Alert", "FALLBACK_TRIGGERED", "Redirecting to Gateway", idempotencyKey));
                 return ResponseEntity.ok("{\"status\": \"FALLBACK\", \"message\": \"USE_RAZORPAY\"}");
             }
         }
     }
 
-    // 3. GATEWAY SUCCESS ENDPOINT (For the OTP Modal)
+    // 2. GATEWAY SUCCESS ENDPOINT (For the OTP Modal)
     @PostMapping("/gateway/simulate-success")
     public ResponseEntity<String> gatewaySuccess() {
         logger.info("Gateway: Payment recovered successfully via Secure OTP.");
-        transactionRepository.save(new Transaction("Razorpay Gateway", "SUCCESS", "Recovered via Fallback"));
+        
+        // We generate a new unique key for the recovery transaction
+        String recoveryKey = "REC_" + System.currentTimeMillis();
+        
+        transactionRepository.save(new Transaction("Razorpay Gateway", "SUCCESS", "Recovered via Fallback", recoveryKey));
         return ResponseEntity.ok("Saved");
     }
 
-    // 4. DASHBOARD ENDPOINT (For admin.html)
+    // 3. DASHBOARD ENDPOINT (For admin.html)
     @GetMapping("/transactions")
     public List<Transaction> getAllTransactions() {
         logger.info("Admin Dashboard: Fetching live transaction logs...");

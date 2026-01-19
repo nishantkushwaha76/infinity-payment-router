@@ -41,7 +41,6 @@
         }
         .total-row { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); }
         
-        /* FIXED: Added standard background-clip property */
         .total-amt { 
             font-size: 36px; font-weight: 700; 
             background: linear-gradient(to right, #6366f1, #ec4899); 
@@ -246,6 +245,11 @@
     </div>
 
     <script>
+        // --- 1. IDEMPOTENCY KEY GENERATION (The New Feature) ---
+        // Generates a unique "Order ID" when the page opens.
+        const idempotencyKey = "txn_" + Math.random().toString(36).substr(2, 9);
+        console.log("Generated Transaction ID:", idempotencyKey);
+
         // --- 3D Card Logic ---
         function updateCard(val) {
             val = val.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim();
@@ -260,7 +264,6 @@
 
         // UPDATE EXPIRY ON CARD
         function updateExp(val) {
-            // Auto add slash
             val = val.replace(/\D/g, '');
             if(val.length >= 2) val = val.substring(0,2) + '/' + val.substring(2,4);
             document.getElementById('cardExp').value = val;
@@ -281,11 +284,24 @@
             btn.disabled = true;
 
             try {
-                // Fake Network Delay
+                // Fake Network Delay for realism
                 await new Promise(r => setTimeout(r, 1500));
 
-                const response = await fetch('http://localhost:8080/api/make-payment', { method: 'POST' });
+                const response = await fetch('http://localhost:8080/api/make-payment', { 
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Idempotency-Key': idempotencyKey  // <--- 2. SENDING THE UNIQUE KEY
+                    }
+                });
                 const result = await response.json();
+
+                // --- 3. HANDLE DUPLICATE (Idempotency Check) ---
+                if (result.status === "DUPLICATE") {
+                    alert("⚠️ Transaction blocked! You have already processed this payment.");
+                    btn.innerHTML = "Paid Already";
+                    return; // Stop execution
+                }
 
                 if (result.status === "SUCCESS") {
                     showSuccess();
@@ -293,6 +309,7 @@
                     triggerFallback();
                 }
             } catch (e) {
+                console.error(e);
                 alert("Backend Error - Make sure server is running");
                 btn.innerHTML = "Retry";
                 btn.disabled = false;
